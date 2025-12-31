@@ -1,19 +1,33 @@
 <?php
+session_start();
 require_once '../includes/auth_manager.php';
 
 $message = '';
 $error = '';
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Handle registration
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'register') {
-        $result = $authManager->register($_POST);
-        if ($result['success']) {
-            header('Location: login.php?registered=true');
-            exit();
-        } else {
-            $error = $result['error'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
+    // Debug: Show what was received
+    error_log("Registration POST data: " . print_r($_POST, true));
+    
+    $result = $authManager->register($_POST);
+    
+    if ($result['success']) {
+        // Merge guest cart if exists
+        if (isset($_SESSION['cart_session_id'])) {
+            $authManager->mergeGuestCart($result['user_id']);
         }
+        
+        $_SESSION['registration_success'] = 'Registration successful! Please sign in.';
+        header('Location: login.php');
+        exit();
+    } else {
+        $error = $result['error'];
+        error_log("Registration error: " . $error);
     }
 }
 
@@ -21,6 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 if ($authManager->isLoggedIn()) {
     header('Location: ../index.php');
     exit();
+}
+
+// Check for success message from redirect
+if (isset($_SESSION['registration_success'])) {
+    $message = $_SESSION['registration_success'];
+    unset($_SESSION['registration_success']);
 }
 ?>
 
@@ -62,13 +82,26 @@ if ($authManager->isLoggedIn()) {
                 </div>
 
                 <!-- Messages -->
+                <?php if ($message): ?>
+                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+                        <i class="fas fa-check-circle mr-2"></i><?php echo $message; ?>
+                    </div>
+                <?php endif; ?>
+
                 <?php if ($error): ?>
                     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
                         <i class="fas fa-exclamation-circle mr-2"></i><?php echo $error; ?>
                     </div>
+                    <!-- Debug info -->
+                    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+                        <i class="fas fa-bug mr-2"></i>
+                        <strong>Debug Info:</strong><br>
+                        Please check your PHP error logs for more details.<br>
+                        Common issues: database connection, table permissions, PHP version.
+                    </div>
                 <?php endif; ?>
 
-                <form method="POST">
+                <form method="POST" id="registrationForm">
                     <input type="hidden" name="action" value="register">
                     
                     <div class="grid grid-cols-2 gap-4 mb-4">
@@ -128,7 +161,7 @@ if ($authManager->isLoggedIn()) {
                             <i class="fas fa-lock absolute left-3 top-3 text-gray-400"></i>
                             <input type="password" name="password" required minlength="8"
                                    class="w-full pl-10 pr-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                   placeholder="••••••••"
+                                   placeholder="••••••••••"
                                    id="password">
                             <button type="button" onclick="togglePassword()" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
                                 <i class="fas fa-eye" id="password-toggle"></i>
@@ -184,6 +217,35 @@ if ($authManager->isLoggedIn()) {
                 toggleIcon.classList.add('fa-eye');
             }
         }
+
+        // Form validation
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            const email = document.querySelector('input[name="email"]').value;
+            const password = document.querySelector('input[name="password"]').value;
+            const username = document.querySelector('input[name="username"]').value;
+            
+            // Basic client-side validation
+            if (username.length < 3) {
+                e.preventDefault();
+                alert('Username must be at least 3 characters long');
+                return false;
+            }
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                e.preventDefault();
+                alert('Please enter a valid email address');
+                return false;
+            }
+            
+            if (password.length < 8) {
+                e.preventDefault();
+                alert('Password must be at least 8 characters long');
+                return false;
+            }
+            
+            return true;
+        });
     </script>
 </body>
 </html>

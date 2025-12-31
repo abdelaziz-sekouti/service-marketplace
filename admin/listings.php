@@ -14,9 +14,6 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-} else {
-    $action = $_GET['action'] ?? '';
-}
     
     if ($action === 'add') {
         // Add new listing
@@ -30,9 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         try {
             $stmt = executeQuery("
-                INSERT INTO listings (title, description, category, affiliate_link, price, image, network_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ", [$title, $description, $category, $affiliate_link, $price, $image, $network_id]);
+                INSERT INTO listings (title, description, category, affiliate_link, price, image) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ", [$title, $description, $category, $affiliate_link, $price, $image]);
             
             $message = 'Listing added successfully!';
             
@@ -49,15 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $affiliate_link = sanitize($_POST['affiliate_link']);
         $price = floatval($_POST['price']);
         $image = sanitize($_POST['image']);
-        $network_id = intval($_POST['network_id']);
         $status = sanitize($_POST['status']);
         
         try {
             $stmt = executeQuery("
                 UPDATE listings 
-                SET title = ?, description = ?, category = ?, affiliate_link = ?, price = ?, image = ?, network_id = ?, status = ?
+                SET title = ?, description = ?, category = ?, affiliate_link = ?, price = ?, image = ?, status = ?
                 WHERE id = ?
-            ", [$title, $description, $category, $affiliate_link, $price, $image, $network_id, $status, $id]);
+            ", [$title, $description, $category, $affiliate_link, $price, $image, $status, $id]);
             
             $message = 'Listing updated successfully!';
             
@@ -77,11 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Failed to delete listing: ' . $e->getMessage();
         }
     }
+}
 
 // Get listings for display
 try {
     $stmt = executeQuery("
-        SELECT l.*, '' as network_name, COUNT(a.id) as clicks 
+        SELECT l.*, COUNT(a.id) as clicks 
         FROM listings l 
         LEFT JOIN analytics a ON l.id = a.listing_id 
         GROUP BY l.id 
@@ -90,14 +87,6 @@ try {
     $listings = $stmt->fetchAll();
 } catch (Exception $e) {
     $error = 'Failed to load listings';
-}
-
-// Get affiliate networks
-try {
-    $stmt = executeQuery("SELECT * FROM affiliate_networks WHERE status = 'active' ORDER BY name");
-    $networks = $stmt->fetchAll();
-} catch (Exception $e) {
-    $networks = [];
 }
 
 // Get categories
@@ -273,16 +262,6 @@ if (!empty($listings)) {
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Affiliate Network</label>
-                        <select name="network_id" id="network_id" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">None</option>
-                            <?php foreach ($networks as $network): ?>
-                                <option value="<?php echo $network['id']; ?>"><?php echo $network['name']; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
                         <input type="url" name="image" id="image"
                                placeholder="https://example.com/image.jpg"
@@ -329,7 +308,6 @@ if (!empty($listings)) {
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listing</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Network</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clicks</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -356,9 +334,6 @@ if (!empty($listings)) {
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900">
                                     $<?php echo number_format($listing['price'], 2); ?>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">
-                                    <?php echo $listing['network_name'] ?: 'None'; ?>
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="text-sm font-medium text-gray-900"><?php echo $listing['clicks']; ?></div>
@@ -423,7 +398,6 @@ if (!empty($listings)) {
                 document.getElementById('category').value = listing.category;
                 document.getElementById('price').value = listing.price;
                 document.getElementById('status').value = listing.status || 'active';
-                document.getElementById('network_id').value = listing.network_id || '';
                 document.getElementById('image').value = listing.image || '';
                 document.getElementById('description').value = listing.description;
                 document.getElementById('affiliate_link').value = listing.affiliate_link || '';

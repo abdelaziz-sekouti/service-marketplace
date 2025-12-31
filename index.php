@@ -1,6 +1,6 @@
     <?php
     session_start();
-    require_once 'includes/auth_manager.php';
+    require_once './includes/auth_manager.php';
     $authManager = new AuthManager();
     ?>
     <!DOCTYPE html>

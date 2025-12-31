@@ -1,4 +1,5 @@
 <?php
+require_once  __DIR__.'/../db_connect.php';
 
 class AuthManager {
     private $pdo;
@@ -50,7 +51,7 @@ class AuthManager {
             
             $userId = $this->pdo->lastInsertId();
             
-            // Log in the user
+            // Log in user
             $this->loginUser($userData['email'], $userData['password']);
             
             return ['success' => true, 'user_id' => $userId];
@@ -111,6 +112,7 @@ class AuthManager {
     
     // Check if user is logged in
     public function isLoggedIn() {
+        // session_start();
         return isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
     }
     
@@ -121,12 +123,69 @@ class AuthManager {
         }
         
         try {
-            $stmt = $this->pdo->prepare("SELECT id, username, email, first_name, last_name, phone FROM users WHERE id = ?");
+            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = ?");
             $stmt->execute([$_SESSION['user_id']]);
             return $stmt->fetch();
         } catch (Exception $e) {
             return null;
         }
+    }
+    
+    // Merge guest cart with user cart when logging in
+    public function mergeGuestCart($userId) {
+        try {
+            require_once 'cart_manager.php';
+            $cartManager = new CartManager();
+            $sessionId = $this->getOrCreateSessionId();
+            
+            // Get guest cart items
+            $stmt = $this->pdo->prepare("SELECT * FROM cart WHERE session_id = ?");
+            $stmt->execute([$sessionId]);
+            $guestItems = $stmt->fetchAll();
+            
+            foreach ($guestItems as $item) {
+                // Check if user already has this item
+                $stmt = $this->pdo->prepare("SELECT * FROM cart WHERE user_id = ? AND listing_id = ?");
+                $stmt->execute([$userId, $item['listing_id']]);
+                $existingItem = $stmt->fetch();
+                
+                if ($existingItem) {
+                    // Update quantity
+                    $newQuantity = $existingItem['quantity'] + $item['quantity'];
+                    $stmt = $this->pdo->prepare("
+                        UPDATE cart 
+                        SET quantity = ?, updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([$newQuantity, $existingItem['id']]);
+                    
+                    // Remove guest item
+                    $stmt = $this->pdo->prepare("DELETE FROM cart WHERE id = ?");
+                    $stmt->execute([$item['id']]);
+                } else {
+                    // Transfer to user cart
+                    $stmt = $this->pdo->prepare("
+                        UPDATE cart 
+                        SET user_id = ?, session_id = NULL, updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([$userId, $item['id']]);
+                }
+            }
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => 'Failed to merge cart: ' . $e->getMessage()];
+        }
+    }
+    
+    // Get or create session ID for guest users
+    private function getOrCreateSessionId() {
+        if (!isset($_SESSION['cart_session_id'])) {
+            $_SESSION['cart_session_id'] = uniqid('cart_', true);
+        }
+        return $_SESSION['cart_session_id'];
     }
     
     // Update user profile
