@@ -71,12 +71,18 @@ $grandTotal = $totalAmount + $tax + $shipping;
                     <?php if ($authManager->isLoggedIn()): ?>
                         <?php $user = $authManager->getCurrentUser(); ?>
                         <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($user['first_name']); ?>!</span>
-                        <a href="account.php" class="text-gray-600 hover:text-gray-800">
+                        <form method="get" action="../auth/account.php">
+
+                        <button type="submit" class="text-gray-600 hover:text-gray-800">
                             <i class="fas fa-user mr-1"></i>Account
-                        </a>
-                        <a href="orders.php" class="text-gray-600 hover:text-gray-800">
+                        </button>
+                        </form>
+
+                        <form method="get" action="../auth/orders.php">
+                        <button type="submit"  href= class="text-gray-600 hover:text-gray-800">
                             <i class="fas fa-shopping-bag mr-1"></i>Orders
-                        </a>
+                        </button>
+                        </form>
                         <form method="POST" action="logout.php" class="inline">
                             <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition">
                                 <i class="fas fa-sign-out-alt mr-1"></i>Logout

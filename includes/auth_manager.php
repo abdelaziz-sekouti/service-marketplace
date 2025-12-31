@@ -76,7 +76,7 @@ class AuthManager {
         $stmt->execute([$email]);
         $user = $stmt->fetch();
         
-        if (!$user || !password_verify($password, $user['password_hash'])) {
+        if (!$user || !md5($password) == $user['password_hash']){
             return ['success' => false, 'error' => 'Invalid email or password'];
         }
         

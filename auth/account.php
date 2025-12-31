@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/auth_manager.php';
 
+$user = $authManager->getCurrentUser();
 // Handle logout
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $authManager->logout();
@@ -14,7 +15,6 @@ if (!$authManager->isLoggedIn()) {
     exit();
 }
 
-$user = $authManager->getCurrentUser();
 ?>
 
 <!DOCTYPE html>
